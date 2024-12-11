@@ -1,88 +1,135 @@
-document.addEventListener('DOMContentLoaded', loadTasks);
+$(document).ready(function () {
+  loadTasks();
 
-async function loadTasks() {
-    const response = await fetch('/tasks');
-    const tasks = await response.json();
-    const taskTableBody = document.querySelector('#taskTable tbody');
-    taskTableBody.innerHTML = '';
+  function loadTasks() {
+    const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+    const taskTableBody = $("#taskTable tbody");
+    taskTableBody.empty(); // Clear the table before adding new rows
 
-    tasks.forEach(task => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
+    tasks.forEach((task) => {
+      const row = `
+          <tr>
             <td>${task.name}</td>
             <td>${task.description}</td>
             <td>${new Date(task.dueDate).toLocaleDateString()}</td>
             <td>
-                <button class="edit" onclick="editTask(${task.id})">Edit</button>
-                <button class="delete" onclick="deleteTask(${task.id})">Delete</button>
+              <button class="edit" onclick="editTask(${task.id})">Edit</button>
+              <button class="delete" onclick="deleteTask(${
+                task.id
+              })">Delete</button>
             </td>
+          </tr>
         `;
-        taskTableBody.appendChild(row);
+      taskTableBody.append(row); // Append the row to the table body
     });
-}
+  }
 
-async function addTask() {
-    const name = document.getElementById('taskName').value;
-    const description = document.getElementById('taskDescription').value;
-    const dueDate = document.getElementById('taskDueDate').value;
+  function addTask() {
+    const name = $("#taskName").val().trim(); // Remove leading/trailing spaces
+    const description = $("#taskDescription").val().trim(); // Remove leading/trailing spaces
+    const dueDate = $("#taskDueDate").val().trim(); // Remove leading/trailing spaces
 
-    await fetch('/tasks', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, description, dueDate }),
-    });
+    // Log values for debugging
+    console.log("Name:", name);
+    console.log("Description:", description);
+    console.log("Due Date:", dueDate);
 
-    document.getElementById('taskName').value = '';
-    document.getElementById('taskDescription').value = '';
-    document.getElementById('taskDueDate').value = '';
-    
-    loadTasks(); // Tải lại danh sách task sau khi thêm mới
-}
+    if (!name || !description || !dueDate) {
+      alert("Please fill in all fields.");
+      return;
+    }
 
-async function editTask(id) {
-    const name = prompt('Enter new task name:');
-    const description = prompt('Enter new task description:');
-    const dueDate = prompt('Enter new task due date (YYYY-MM-DD):');
+    const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+    const id = Date.now(); // Unique ID based on timestamp
 
-    await fetch(`/tasks/${id}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, description, dueDate }),
-    });
+    tasks.push({ id, name, description, dueDate });
+    localStorage.setItem("tasks", JSON.stringify(tasks));
 
-    loadTasks(); // Tải lại danh sách task sau khi chỉnh sửa
-}
+    // Clear the input fields
+    $("#taskName").val("");
+    $("#taskDescription").val("");
+    $("#taskDueDate").val("");
 
-async function deleteTask(id) {
-    await fetch(`/tasks/${id}`, {
-        method: 'DELETE',
-    });
+    loadTasks(); // Refresh the task list
+  }
 
-    loadTasks(); // Tải lại danh sách task sau khi xóa
-}
+  window.editTask = function (id) {
+    const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+    const taskIndex = tasks.findIndex((task) => task.id === id);
 
-async function searchTask() {
-    const searchValue = document.getElementById('searchTask').value.toLowerCase();
-    const response = await fetch('/tasks');
-    const tasks = await response.json();
-    const taskTableBody = document.querySelector('#taskTable tbody');
-    taskTableBody.innerHTML = '';
+    if (taskIndex === -1) return;
 
-    tasks.filter(task => task.name.toLowerCase().includes(searchValue)).forEach(task => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${task.name}</td>
-            <td>${task.description}</td>
-            <td>${new Date(task.dueDate).toLocaleDateString()}</td>
-            <td>
-                <button class="edit" onclick="editTask(${task.id})">Edit</button>
-                <button class="delete" onclick="deleteTask(${task.id})">Delete</button>
-            </td>
-        `;
-        taskTableBody.appendChild(row);
-    });
-}
+    const task = tasks[taskIndex];
+
+    const newName = prompt("Enter new task name:", task.name);
+    const newDescription = prompt(
+      "Enter new task description:",
+      task.description
+    );
+    const newDueDate = prompt(
+      "Enter new task due date (YYYY-MM-DD):",
+      task.dueDate
+    );
+
+    if (!newName || !newDescription || !newDueDate) {
+      alert("All fields are required.");
+      return;
+    }
+
+    tasks[taskIndex] = {
+      ...task,
+      name: newName,
+      description: newDescription,
+      dueDate: newDueDate,
+    };
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+
+    loadTasks(); // Refresh the task list
+  };
+
+  window.deleteTask = function (id) {
+    // Show confirmation dialog before deleting
+    const confirmation = confirm("Are you sure you want to delete this task?");
+
+    if (confirmation) {
+      let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      tasks = tasks.filter((task) => task.id !== parseInt(id)); // Remove the task by ID
+      localStorage.setItem("tasks", JSON.stringify(tasks)); // Save updated tasks to localStorage
+
+      loadTasks(); // Refresh the task list
+    } else {
+      console.log("Task deletion canceled");
+    }
+  };
+
+  $("#searchTask").on("input", function () {
+    const searchValue = $(this).val().toLowerCase();
+    const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+    const taskTableBody = $("#taskTable tbody");
+    taskTableBody.empty(); // Clear the table before adding new rows
+
+    tasks
+      .filter((task) => task.name.toLowerCase().includes(searchValue))
+      .forEach((task) => {
+        const row = `
+            <tr>
+              <td>${task.name}</td>
+              <td>${task.description}</td>
+              <td>${new Date(task.dueDate).toLocaleDateString()}</td>
+              <td>
+                <button class="edit" onclick="editTask(${
+                  task.id
+                })">Edit</button>
+                <button class="delete" onclick="deleteTask(${
+                  task.id
+                })">Delete</button>
+              </td>
+            </tr>
+          `;
+        taskTableBody.append(row); // Append the row to the table body
+      });
+  });
+
+  // Bind the addTask function to the Add Task button
+  $("#addTaskButton").click(addTask);
+});
